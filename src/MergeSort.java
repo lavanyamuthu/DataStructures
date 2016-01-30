@@ -1,6 +1,7 @@
 import java.util.Arrays;
 
 public class MergeSort {
+	//second commit
 	public static int[] mergeSort(int[] array) {
 		if(array.length <=1)
 			return array;
