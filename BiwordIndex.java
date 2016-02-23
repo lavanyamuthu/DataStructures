@@ -70,7 +70,7 @@ public class BiwordIndex extends Configured implements Tool{
 		
 	}
 	private static String input = "data//txt1";
-	private static String output = "data//output//biword//test";
+	private static String output = "data//output//biword";
 	public final int run(String[] args) throws Exception { // NOPMD 
 		  Configuration conf = getConf(); 
 		  Job job = new Job(conf); 

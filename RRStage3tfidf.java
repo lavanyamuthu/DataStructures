@@ -23,6 +23,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
+/*OUTPUT - WORD @DOCID:freq of word in doc(d):total number of words in doc(D):total number of docs word appears (n),tf,idf,tf*idf*/
 public class RRStage3tfidf extends Configured implements Tool{
 	public static int N = 2586;
 	public static Map<String, Integer> treeMap = new TreeMap<String, Integer>();
@@ -63,7 +64,7 @@ public class RRStage3tfidf extends Configured implements Tool{
 				//tf = 1+(double) Math.log10(Double.parseDouble(parse[1]));
 				n = treeMap.get(key.toString());
 				idf = Math.log10(N/n);
-				reducedval = token+":"+treeMap.get(key.toString())+" , "+tf+" , "+idf+" , "+(tf*idf);
+				reducedval = "@"+token+":"+treeMap.get(key.toString())+","+tf+","+idf+","+(tf*idf);
 				//reducedval = token+":"+treeMap.get(key.toString());
 				context.write(key, new Text(reducedval));
 			}

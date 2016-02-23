@@ -17,6 +17,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
+/*OUTPUT - WORD=>DOCID,freuencyofwordinDOCID,total number of words in DOCID*/
 public class RRStage2NumberofWordsinDoc extends Configured implements Tool{
 	public static Map<String, Integer> treeMap = new TreeMap<String, Integer>();
 	public static class RRStage2Mapper extends Mapper<Text, Text, Text, Text> {

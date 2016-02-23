@@ -24,6 +24,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
+/*OUTPUT - WORD=>DOCID,frequencyofword in docid*/
 public class RRStage1WordsFrequency extends Configured implements Tool{
 	public static class RRStage1Mapper extends Mapper<Text, BytesWritable, Text, Text> {
 		public void map(Text key, BytesWritable content, Context context)  throws IOException, InterruptedException {

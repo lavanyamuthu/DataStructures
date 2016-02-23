@@ -64,7 +64,7 @@ public class UniwordIndex extends Configured implements Tool{
 	}
 	
 	private static String input = "data//txt1";
-	private static String output = "data//output//uniword//test";
+	private static String output = "data//output//uniword";
 	public final int run(String[] args) throws Exception { // NOPMD 
 		  Configuration conf = getConf(); 
 		  Job job = new Job(conf); 
