@@ -1,18 +1,14 @@
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
-import java.util.StringTokenizer;
 import java.util.TreeMap;
 
 import org.apache.hadoop.conf.Configuration;
@@ -23,7 +19,6 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.Reducer.Context;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
@@ -36,12 +31,13 @@ public class CosineSimilarity extends Configured implements Tool {
 	public static HashMap<String,Integer> QueryWordsCount = new HashMap<String, Integer>();
 	public static HashMap<String,Double> Querytf = new HashMap<String, Double>();
 	public static HashMap<String,Double> Queryidf = new HashMap<String, Double>();
-	//public static HashMap<String,querytfidfdata> Querytfidf = new HashMap<String, querytfidfdata>();
 	public static HashMap<String,Double> Querytfidf = new HashMap<String, Double>();
 	public static HashMap<String,Double> Doctf = new HashMap<String, Double>();
 	public static HashMap<String,doctfidfdata> Wordtfidf = new HashMap<String, doctfidfdata>();
 	public static HashMap<String,HashMap<String,doctfidfdata>> Doctfidf = new HashMap<String, HashMap<String,doctfidfdata>>();
 	public static ArrayList<String> Docid = new ArrayList<String>();
+	public static ArrayList<String> QueryWords = new ArrayList<String>();
+	public static Map<String, Double> CosineSimilarity = new HashMap<String, Double>();
 	public static class CosineMapper extends Mapper<LongWritable,Text,Text,Text> {
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
 			if (query.equals("")) {
@@ -52,47 +48,33 @@ public class CosineSimilarity extends Configured implements Tool {
 			String [] token = query.split(" ");
 			Text word = new Text();
 			Text location = new Text();
-			//String[] parse = key.toString().split("\t");
-			String temp= "";
 			String[] tokenize = value.toString().split("@");
 			String[] parse = tokenize[1].split(",");
+			String valword = tokenize[0].trim();
+			String docid = parse[0];
+			double d = Double.parseDouble(parse[1]);
+			double D = Double.parseDouble(parse[2]);
+			double n = Double.parseDouble(parse[3]);
+			double tf = Double.parseDouble(parse[4]);
+			double idf = Double.parseDouble(parse[5]);
+			double tfidf = Double.parseDouble(parse[6]);
 			
-			//System.out.println("key:"+key+" value:"+value+" token length:"+token.length);
 			for(int i=0;i<token.length;i++) {
-				//System.out.println("In for loop, tokenize[0]:"+tokenize[0]+" token[i]:"+token[i]);
 				if(tokenize[0].trim().equals(token[i].trim())) {
-					word.set(tokenize[0]);
-					location.set(tokenize[1]);
-					//System.out.println("word:"+word+" location:"+location);
+					word.set(docid.trim());
+					String temp1 = valword+","+Double.toString(d)+","+Double.toString(D)+","+Double.toString(n)+","+Double.toString(tf)+","+Double.toString(idf)+","+Double.toString(tfidf);
+					location.set(temp1);
 					context.write(word,location);
 					if(!Queryidf.containsKey(token[i].trim())) {
-						Queryidf.put(token[i].trim(),Double.parseDouble(parse[2]));
+						Queryidf.put(token[i].trim(),Double.parseDouble(parse[5]));
 					}
-					/*if(!Docid.contains(token[i].trim())) {
-						Docid.add(token[i].trim());
-					}*/
-					//else {
-					//	Queryidf.put(token[i].trim(),Queryidf.get(key.toString()) + 1);
-					//}
 				}
 			}
-			//word.set("key");
-			//temp = parse[1]+":"+value;
-			//location.set(value);
-			//context.write(word, location);
-			//System.out.println("word:"+word+" location:"+location);
-			/*if(!treeMap.containsKey(key.toString())) {
-				treeMap.put(key.toString(),1);
-			}
-			else {
-				treeMap.put(key.toString(), treeMap.get(key.toString()) + 1);
-			}*/
 		}	
 	}
 	
 	public static class CosineReducer extends Reducer<Text,Text,Text,Text> {
 		static String[] gileList = null;
-		//private static String query = "";
 	    static List<DataForRank> rList = new ArrayList<DataForRank>();
 	    public static double cosineSimilarity(double[] docVector1,
 				double[] docVector2) {
@@ -120,29 +102,56 @@ public class CosineSimilarity extends Configured implements Tool {
 
 
 		public static void getCosineSimilarity(Context context) throws IOException, InterruptedException {
-			double[] vec1 = new double[Doctfidf.size()];
-			double[] vec2 = new double[Doctfidf.size()];
-
-			/*for (Map.Entry<String, HashMap<String, doctfidfdata>> entry : Doctfidf.entrySet()) {
-				HashMap<String, doctfidfdata> temp1 = entry.getValue();
-				//context.write(new Text(entry.getKey()),new Text("It is the doc id"));
-				for (Map.Entry<String, doctfidfdata> entry1 : temp1.entrySet()) {
-					Text test = new Text(entry1.getKey()+entry1.getValue().tfidf+","+entry1.getValue().querytfidf);
-					//context.write(new Text(entry.getKey()),test);
-					System.out.println("Key = " + entry.getKey() + ", test = " + test);
-				}
-			}*/
-			
-			String name = "";
 			if (query.equals("")) {
 				Configuration conf = context.getConfiguration();
 				query = new String(conf.get("query"));
 			}
-			System.out.println(query);
+			query = query.toLowerCase();
+			String [] token3 = query.split(" ");
+			double[] vec1 = new double[Doctfidf.size()];
+			double[] vec2 = new double[Doctfidf.size()];
+
+			for (Map.Entry<String, HashMap<String, doctfidfdata>> entry : Doctfidf.entrySet()) {
+				double num=0,denom1=0,denom2=0,sim=0;
+				HashMap<String, doctfidfdata> temp1 = entry.getValue();
+				//System.out.println("Hashmap of key:"+entry.getKey()+" size of value hash map:"+temp1.size());
+				int i=-1;
+				ArrayList<String> words = new ArrayList<String>();
+				double[] doctfidf = new double[token3.length];
+				double[] querytfidf = new double[token3.length];
+				String docid = "";
+				for (Map.Entry<String, doctfidfdata> entry1 : temp1.entrySet()) {
+					i++;
+					Text test = new Text(entry1.getKey()+entry1.getValue().tfidf+","+entry1.getValue().querytfidf);
+					docid = entry.getKey();
+					doctfidf[i] = entry1.getValue().tfidf;
+					querytfidf[i] = entry1.getValue().querytfidf;
+					words.add(entry1.getKey());
+				}
+				for(int k=0;k>QueryWords.size();k++) {
+					if(! words.contains(QueryWords.get(k))) {
+						i++;
+						doctfidf[i] = 0;
+						querytfidf[i] = Querytfidf.get(QueryWords.get(k));
+					}
+				}
+				for(int j=0;j<doctfidf.length;j++) {
+					num += (doctfidf[j]*querytfidf[i]);
+					denom1 += doctfidf[j]*doctfidf[j];
+					denom2 += querytfidf[i]*querytfidf[i];
+				}
+				sim = (num)/(Math.sqrt(denom1)*Math.sqrt(denom2));
+				if(!CosineSimilarity.containsKey(docid)) {
+					CosineSimilarity.put(docid,sim);
+				}
+			}
+			
+			if (query.equals("")) {
+				Configuration conf = context.getConfiguration();
+				query = new String(conf.get("query"));
+			}
 			query = query.toLowerCase();
 			String [] token = query.split(" ");
-			StringTokenizer tokens1 = new StringTokenizer(query);
-			String token1 = "";
 			Set<String> files = null;
 			int index = token.length;
 			for(int i=0;i<token.length;i++) {
@@ -151,98 +160,13 @@ public class CosineSimilarity extends Configured implements Tool {
 					for(String file:files){
 						gileList[index]=file;
 						index++;
-						//System.out.println("gileList[index]:"+gileList[index]);
 					}
 				}
 			}
-			/*while (tokens1.hasMoreTokens()) {
-				token1 = tokens1.nextToken();
-				if(Doctfidf.get(token1)!=null){
-					files = Doctfidf.get(token1).keySet();
-					for(String file:files){
-						gileList[index]=file;
-						index++;
-					}
-				}
-			}*/
-			//System.out.println("index:"+index);
-			for (int i = 0; i < index; i++) {
-				//name = gileList[i];
-				name = Docid.get(i);
-				System.out.println("Docid.get(i):"+Docid.get(i));
-				StringTokenizer tokens = new StringTokenizer(query);
-				String token2 = "";
-				int j = 0;
-				for(int k=0;k<token.length;k++) {
-					//System.out.println("token[k]:"+token[k]+" name is:"+name);
-					if (Doctfidf.get(name) != null) {
-						//System.out.println("name:"+name+" Doctfidf.get(name):"+Doctfidf.get(name));
-						//System.out.println("1st loop Doctfidf.get(name).get(token[k]):"+Doctfidf.get(name).get(token[k].trim()));
-						//vec1[j] = Doctfidf.get(name).get(token[k].trim()).gettfidf();
-						//vec2[j] = Doctfidf.get(name).get(token[k].trim()).getquerytfidf();
-						HashMap<String, doctfidfdata> temp1 = new HashMap<String, doctfidfdata>();
-						//HashMap<String, doctfidfdata> temp1 = find(name, Doctfidf);
-						//if(	Doctfidf.get(name).get(token[k].trim()) != null) {
-						temp1 = Doctfidf.get(name);
-						if(!temp1.isEmpty()) {
-							//System.out.println("temp1 is not empty");
-							//for (Map.Entry<String, doctfidfdata> entry1 : temp1.entrySet()) {
-							//	System.out.println("key:"+entry1.getKey()+" value:"+entry1.getValue().getquerytfidf());
-							//}
-							//System.out.println("token[k]:"+token[k]+" temp val:"+temp1.get(token[k].trim()));
-							if(temp1.containsKey(token[k].trim())) { 
-								//System.out.println("1st loop Doctfidf.get(name).get(token[k]):"+temp1.get(token[k].trim()));
-								vec1[j] = temp1.get(token[k].trim()).gettfidf();
-								vec2[j] = temp1.get(token[k].trim()).getquerytfidf();
-							}
-						}
-					}
-					else{
-						vec1[j] = 0.0;
-						/*Set<String> tmpTfIdf = Doctfidf.get(name).keySet();
-						String docName = "";
-						for (String tmpName : tmpTfIdf) {
-							docName = tmpName;
-							break;
-						}*/
-						vec2[j] = 0.0;
-						if(Doctfidf.get(name) != null) {
-							//System.out.println("2nd loop Doctfidf.get(name):"+Doctfidf.get(name)+" token:"+token);
-							if (Doctfidf.get(name).get(token[k].trim()) != null) {
-								//System.out.println("Doctfidf.get(name).get(token[k]):"+Doctfidf.get(name).get(token[k].trim()));
-								vec2[j] = Doctfidf.get(name).get(token[k].trim()).getquerytfidf();
-							}
-						}
-					}
-					//System.out.println("vec1[j]:"+vec1[j]+" vec2[j]:"+vec2[j]);
-					j++;
-				}
-				/*while (tokens.hasMoreTokens()) {
-					
-					token2 = tokens.nextToken();
-					System.out.println("token:"+token2);
-					if (Doctfidf.get(name).get(token2) != null) {
-						vec1[j] = Doctfidf.get(name).get(token2).tfidf;
-						vec2[j] = Doctfidf.get(name).get(token2).querytfidf;
-						
-					}
-					else{
-						vec1[j] = 0.0;
-						vec2[j] = Doctfidf.get(name).get(token2).querytfidf;
-					}
-					System.out.println("vec1[j]:"+vec1[j]+" vec2[j]:"+vec2[j]);
-					j++;
-				}*/
-				
-			//	context.write(new Text(name), new Text(new Double(cosineSimilarity(vec1,vec2)).toString()));
-					rList.add(new DataForRank(name, cosineSimilarity(vec1,
-							vec2)));
-
-			}
-
 		}
 
 		public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+			ArrayList<String> wordlist = new ArrayList<String>();
 			if (query.equals("")) {
 				Configuration conf = context.getConfiguration();
 				query = new String(conf.get("query"));
@@ -250,6 +174,7 @@ public class CosineSimilarity extends Configured implements Tool {
 			query = query.toLowerCase();
 			String [] token = query.split(" ");
 			for(int i=0;i<token.length;i++) {
+				QueryWords.add(token[i]);
 				if(!QueryWordsCount.containsKey(token[i])) {
 					QueryWordsCount.put(token[i],1);
 				}
@@ -257,96 +182,88 @@ public class CosineSimilarity extends Configured implements Tool {
 					QueryWordsCount.put(token[i], QueryWordsCount.get(token[i] + 1));
 				}
 			}
-			//Iterator it = QueryWordsCount.entrySet().iterator();
 			for (Map.Entry<String, Integer> entry : QueryWordsCount.entrySet()) {
-			    //System.out.println("wcKey = " + entry.getKey() + ", Value = " + entry.getValue()+" totla length:"+token.length);
 			    if(!Querytf.containsKey(entry.getKey())) {
 					Querytf.put(entry.getKey(),(double) ((double)entry.getValue()/(double)token.length));
-					//Querytf.put(entry.getKey(),(double) );
 				}
 			}
 			for(int i=0;i<token.length;i++) {
-				//querytfidfdata querydata = new querytfidfdata(token[i],(Querytf.get(token[i])*Queryidf.get(token[i])));
-				//querytfidfdata querydata = new querytfidfdata();
 				if(!Querytfidf.containsKey(token[i])) {
-					//querydata.word = token[i];
-					//querydata.tfidf = Querytf.get(token[i])*Queryidf.get(token[i]);
 					Querytfidf.put(token[i].trim(),Querytf.get(token[i])*Queryidf.get(token[i]));
-				}
-				//else {
-				//	Querytfidf.put(token[i], Querytfidf.get(token[i] + 1);
-				//}
-			}
-			for (Map.Entry<String, Double> entry : Querytf.entrySet()) {
-			   // System.out.println("tfKey = " + entry.getKey() + ", Value = " + entry.getValue());
-			    if(!Querytf.containsKey(entry.getKey())) {
-					Querytf.put(entry.getKey(),(double) (entry.getValue()/token.length));
 				}
 			}
 			Iterator itr = values.iterator();
 			String tokenize = " ", reducedval = "";
-			//String[] parse = new String[2];
 			double idf=0;
 			double tf=0;
 			int n=0;
 			while (itr.hasNext()) {
 				tokenize = itr.next().toString();
-				String[] parse = tokenize.split(":");
-				String[] parseval = parse[3].split(",");
-				//System.out.println("key:"+key+" token:"+tokenize);
-				//doctfidfdata docdata = new doctfidfdata(key.toString(),Double.parseDouble(parseval[3]));
-				if(!Doctfidf.containsKey(parse[0])) {
+				String[] parse = tokenize.split(",");
+				wordlist.add(parse[0].trim());
+				if(!Doctfidf.containsKey(key.toString())) {
 					Docid.add(parse[0].trim());
-					//System.out.println("docid:"+parse[0].trim()+" word:"+key.toString()+", docid:"+parse[0]+", tfidf:"+Double.parseDouble(parseval[3])+" querytfidf:"+Querytfidf.get(key.toString().trim()));
 					HashMap<String,doctfidfdata> tfidfmap = new HashMap<String,doctfidfdata>();
-					doctfidfdata temp = new doctfidfdata(Double.parseDouble(parseval[3]),Querytfidf.get(key.toString().trim()));
-					tfidfmap.put(key.toString().trim(), temp);
-					Doctfidf.put(parse[0].trim(), tfidfmap);	
+					doctfidfdata temp = new doctfidfdata(Double.parseDouble(parse[6]),Querytfidf.get(parse[0].trim()));
+					tfidfmap.put(parse[0].trim(), temp);
+					Doctfidf.put(key.toString(), tfidfmap);	
 				}
 				else {
-					//System.out.println("secnddocid:"+parse[0].trim()+" word:"+key.toString()+", docid:"+parse[0]+", tfidf:"+Double.parseDouble(parseval[3])+" querytfidf:"+Querytfidf.get(key.toString().trim()));
 					HashMap<String,doctfidfdata> tfidfmap = new HashMap<String,doctfidfdata>();
-					doctfidfdata temp = new doctfidfdata(Double.parseDouble(parseval[3]),Querytfidf.get(key.toString().trim()));
-					//tfidfmap.put(key.toString(), temp);
-					Doctfidf.get(parse[0].trim()).put(key.toString().trim(), temp);
-					//, tfidfmap);
+					doctfidfdata temp = new doctfidfdata(Double.parseDouble(parse[6]),Querytfidf.get(parse[0].trim()));
+					Doctfidf.get(key.toString()).put(parse[0].trim(), temp);
 				}
 			}
-			//TreeMap<String,HashMap<String,doctfidfdata>> Doctfidf1 = new TreeMap<String, HashMap<String,doctfidfdata>>(Doctfidf);
-						
-			//Collections.sort(Doctfidf);
 			
-			/*for (Map.Entry<String, HashMap<String, doctfidfdata>> entry : Doctfidf.entrySet()) {
+			for(int i=0;i<token.length;i++) {
+				if(!wordlist.contains(token[i])) {
+					HashMap<String,doctfidfdata> tfidfmap = new HashMap<String,doctfidfdata>();
+					doctfidfdata temp = new doctfidfdata(0.0,Querytfidf.get(token[i].trim()));
+					tfidfmap.put(token[i].trim(), temp);
+					if(!Doctfidf.containsKey(key.toString())) {
+						Doctfidf.put(key.toString(), tfidfmap);
+					}
+					else {
+						HashMap<String,doctfidfdata> tfidfmap1 = new HashMap<String,doctfidfdata>();
+						doctfidfdata temp1 = new doctfidfdata(0.0,Querytfidf.get(token[i].trim()));
+						Doctfidf.get(key.toString()).put(token[i].trim(), temp);
+					}
+				}
+			}
+			for (Map.Entry<String, HashMap<String, doctfidfdata>> entry : Doctfidf.entrySet()) {
 				HashMap<String, doctfidfdata> temp1 = entry.getValue();
-				//context.write(new Text(entry.getKey()),new Text("It is the doc id"));
 				for (Map.Entry<String, doctfidfdata> entry1 : temp1.entrySet()) {
 					Text test = new Text(entry1.getKey()+entry1.getValue().tfidf+","+entry1.getValue().querytfidf);
-					context.write(new Text(entry.getKey()),test);
 				}
-			    //System.out.println("Key = " + entry.getKey() + ", word = " + entry.getValue());
-			    
-			}*/
-			/*for(int i=0;i<Docid.size();i++) {
-				System.out.println("DocId:"+Docid.get(i)+" key:"+Doctfidf.get(Docid.get(i)).size());
-			}*/
+			}
 			getCosineSimilarity(context);
 			Collections.sort(rList);
 			for(DataForRank doc:rList){
-			context.write(new Text(doc.toString().split("::::::::::::")[0]), new Text(doc.toString().split("::::::::::::")[1]));
+			//context.write(new Text(doc.toString().split("::::::::::::")[0]), new Text(doc.toString().split("::::::::::::")[1]));
 			}
-			//System.out.println("Doctfidf size:"+Doctfidf.size()+" size of 2508 docid:"+Doctfidf.get("2508").size());
-			/*for (Map.Entry<String, Double> entry : Querytfidf.entrySet()) {
-				Text test = new Text(entry.getValue().word+entry.getValue().tfidf);
-			    System.out.println("Key = " + entry.getKey() + ", word = " + entry.getValue().word+", tfidf = "+entry.getValue().tfidf);
-			    context.write(new Text(entry.getKey()),test);
-			}*/
+		}
+		protected void cleanup(Context context) throws IOException,InterruptedException {
+			Map<String, Double> CosineSimilaritSort = new TreeMap<String, Double>(CosineSimilarity);
+			Map sortedMap = sortByValue(CosineSimilarity);
+			Iterator it = sortedMap.entrySet().iterator();
+		    while (it.hasNext()) {
+		        Map.Entry pair = (Map.Entry)it.next();
+		        context.write(new Text(pair.getKey().toString()),new Text(pair.getValue().toString()));
+		    }
+		}
+		public static Map sortByValue(Map unsortedMap) {
+			Map sortedMap = new TreeMap(new ValueComparator(unsortedMap));
+			sortedMap.putAll(unsortedMap);
+			return sortedMap;
 		}
 	}
 
 	private static final String OUTPUT_PATH = "data//output//queryop";
+	//private static final String OUTPUT_PATH = "data//output//testqueryop";
 
 	// where to read the data from.
 	private static final String INPUT_PATH = "data//output//RR//stage3//part-r-00000";
+	//private static final String INPUT_PATH = "data//output//RR//testoutputstage3//part-r-00000";
 
 	public int run(String[] args) throws Exception {
 
@@ -380,6 +297,7 @@ public class CosineSimilarity extends Configured implements Tool {
 			params[i]=args[i];
 		}
 		FileReader file = new FileReader("data//extract//Query.txt");
+		//FileReader file = new FileReader("data//extract//testquery.txt");
 
 		//Configuration conf = new Configuration(); 
 		
@@ -451,5 +369,17 @@ class DataForRank implements Comparable<DataForRank> {
 	public String toString(){
 		return "Similarity = "+tfidf + "::::::::::::Doc= "+docName;
 	}
-
+}
+class ValueComparator implements Comparator {
+	Map map;
+ 
+	public ValueComparator(Map map) {
+		this.map = map;
+	}
+ 
+	public int compare(Object keyA, Object keyB) {
+		Comparable valueA = (Comparable) map.get(keyA);
+		Comparable valueB = (Comparable) map.get(keyB);
+		return valueB.compareTo(valueA);
+	}
 }

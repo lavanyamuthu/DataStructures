@@ -24,7 +24,9 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
-/*OUTPUT - WORD=>DOCID,frequencyofword in docid*/
+/* MAPPER INPUT - zipfile reader
+ * MAPPER OUTPUT/REDUCER INPUT - (<word1>,<docid1>),(<word1,docid2>),(<word1,docid3>)
+ * REDUCER OUTPUT - WORD:DOCID,wordsfreqindocid(number of times word occurs in doc),docfreqofword(number of docs word occurs)*/
 public class RRStage1WordsFrequency extends Configured implements Tool{
 	public static class RRStage1Mapper extends Mapper<Text, BytesWritable, Text, Text> {
 		public void map(Text key, BytesWritable content, Context context)  throws IOException, InterruptedException {
@@ -49,11 +51,12 @@ public class RRStage1WordsFrequency extends Configured implements Tool{
 			}
 		}
 	}
-	public static class RRStage1Reducer extends Reducer<Text, Text, Text, IntWritable> {
+	public static class RRStage1Reducer extends Reducer<Text, Text, Text, Text> {
 		public void reduce(Text key, Iterable<Text> values, Context context)  throws IOException, InterruptedException {
 			//System.out.println("In reducer");
 			//ArrayList<String> a2 = new ArrayList<String>();
 			Map<String, Integer> treeMap = new TreeMap<String, Integer>();
+			Map<String, Integer> docFreqMap = new TreeMap<String, Integer>();
 			Iterator itr = values.iterator();
 			String token = " ";
 			String[] parse = new String[2];
@@ -65,24 +68,38 @@ public class RRStage1WordsFrequency extends Configured implements Tool{
 				parse = token.split(":");
 				//System.out.println("parse[0]:"+parse[0]);
 				//System.out.println("parse[1]:"+parse[1]);
-				count++;
 				if(!treeMap.containsKey(parse[0])) {
 					//sb.append(token);
 				    //sb.append(",");
 					treeMap.put(parse[0],Integer.parseInt(parse[1]));
+					count++;
 				}
 				else {
 					//System.out.println("treeMap.get(parse[0]):"+treeMap.get(parse[0]));
 					//treeMap.put(parse[0], treeMap.get(key) + Integer.parseInt(parse[1]));
 					treeMap.put(parse[0], treeMap.get(parse[0]) + 1);
 				}
+				/*if(!docFreqMap.containsKey(key+":"+parse[0])) {
+					//sb.append(token);
+				    //sb.append(",");
+					docFreqMap.put((key+":"+parse[0]),Integer.parseInt(parse[1]));
+				}
+				else {
+					//System.out.println("treeMap.get(parse[0]):"+treeMap.get(parse[0]));
+					//treeMap.put(parse[0], treeMap.get(key) + Integer.parseInt(parse[1]));
+					docFreqMap.put((key+":"+parse[0]), docFreqMap.get(parse[0]) + 1);
+				}*/
 			}
+			//System.out.println("word:"+key+" count:"+count);
 			for(Map.Entry<String,Integer> entry : treeMap.entrySet()) {
 				  String reducerKey = key+":"+entry.getKey();
 				  Integer value = entry.getValue();
-				  context.write(new Text(reducerKey),new IntWritable(value));
+				  Text test = new Text(value.toString()+","+count);
+				  //context.write(new Text(reducerKey),new IntWritable(value));
+				  context.write(new Text(reducerKey),test);
 				  //System.out.println(key+ "=>" + entry.getKey() + " => " + value);
 			}
+			count=0;
 		}
 	}
 	private static String input = "data//txt1";
